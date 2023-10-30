@@ -9,7 +9,9 @@ class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         """Checks if the Admin has the permission."""
         user = request.user
-        return (user.is_authenticated and user.has_role(Roles.ADMIN)) or permissions.IsAdminUser
+        return (
+            user.is_authenticated and user.has_role(Roles.ADMIN)
+        ) or permissions.IsAdminUser
 
 
 class IsLibrarian(permissions.BasePermission):
@@ -40,7 +42,9 @@ class RequestPermission(permissions.BasePermission):
         user = request.user
 
         if view.action in ["list", "retrieve", "partial_update"]:
-            return user.is_authenticated and (user.has_role(Roles.USER) or user.has_role(Roles.LIBRARIAN))
+            return user.is_authenticated and (
+                user.has_role(Roles.USER) or user.has_role(Roles.LIBRARIAN)
+            )
         return user.is_authenticated and user.has_role(Roles.USER)
 
 

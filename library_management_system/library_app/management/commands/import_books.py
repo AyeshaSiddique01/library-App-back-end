@@ -2,6 +2,7 @@
 import csv
 
 from django.core.management.base import BaseCommand
+
 from library_app.models import Author, Book
 from library_app.utils import BookAttribute
 
@@ -22,7 +23,7 @@ class Command(BaseCommand):
             reader = csv.DictReader(file)
             books = [rc for rc in reader if self.is_valid_record(rc)]
             Book.objects.bulk_create(books)
-            
+
             self.stdout.write(self.style.SUCCESS("Successfully imported books"))
 
     def is_valid_record(self, record):

@@ -3,22 +3,26 @@ from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.hashers import make_password
-from django.db.models import Q, F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
-from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 
-from library_app.models import (Author, Book, RequestStatus, BookRequest, Roles,
-                     Ticket, TicketStatus, User, Role)
+from library_app.models import (Author, Book, BookRequest, RequestStatus, Role,
+                                Roles, Ticket, TicketStatus, User)
 from library_app.permissions import (BookPermission, IsAdmin, IsLibrarian,
-                          RequestPermission, UserHandlePermission)
-from library_app.serializer import (AuthorSerializer, BookViewSerializer, BookCreateSerializer,
-                         BookRequestCreateSerializer, BookRequestViewSerializer, TicketSerializer,
-                         UserSerializer, RoleSerializer)
-from library_app.tasks.send_book_request import send_request_book_mail
-from library_app.tasks.send_ticket import send_ticket_mail
-from library_app.tasks.update_status import send_update_status_mail
+                                     RequestPermission, UserHandlePermission)
+from library_app.serializer import (AuthorSerializer, BookCreateSerializer,
+                                    BookRequestCreateSerializer,
+                                    BookRequestViewSerializer,
+                                    BookViewSerializer, RoleSerializer,
+                                    TicketSerializer, UserSerializer)
+
+# from library_app.tasks.send_book_request import send_request_book_mail
+# from library_app.tasks.send_ticket import send_ticket_mail
+# from library_app.tasks.update_status import send_update_status_mail
+
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -39,6 +43,7 @@ class UserViewSet(viewsets.ModelViewSet):
             hashing.
 
     """
+
     permission_classes = [UserHandlePermission]
     serializer_class = UserSerializer
 
@@ -71,11 +76,14 @@ class UserViewSet(viewsets.ModelViewSet):
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
             login(request, user)
-            return Response({"message": "Sigup successfully"}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "Sigup successfully"}, status=status.HTTP_201_CREATED
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 def update_password(request):
     """
     Handle POST requests to partial_update a user of any role and perform necessary
@@ -95,7 +103,25 @@ def update_password(request):
     User.objects.filter(username=data["username"]).update(password=password)
     return Response({"message": "Updated successfully"}, status=status.HTTP_201_CREATED)
 
+@api_view(["GET"])
+def get_user_role(request):
+    """
+    Handle GET requests to get roles of logged in user.
+    Args:
+        request (HttpRequest): The HTTP request object containing user
+            data in the request body.
 
+    Returns:
+        roles: Roles of user.
+
+    """
+    user = request.user
+    print(user)
+    roles = user.role.all()
+    role_names = [role.role for role in roles]
+    print(role_names)
+    return Response(role_names)
+    
 class LibrarianViewSet(viewsets.ModelViewSet):
     """
     A viewset for managing Librarian resources, including listing, creating,
@@ -151,7 +177,10 @@ class LibrarianViewSet(viewsets.ModelViewSet):
 
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            return Response({"message": "Librarian added successfully"}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "Librarian added successfully"},
+                status=status.HTTP_201_CREATED,
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -220,7 +249,7 @@ class BooksViewSet(viewsets.ModelViewSet):
     permission_classes = [BookPermission]
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ["create", "update", "partial_update"]:
             return BookCreateSerializer
         return BookViewSerializer
 
@@ -284,13 +313,20 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         """
         if not request.data.get("request_message"):
-            return Response({"message": "Request message should not be null"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "Request message should not be null"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         request_message = request.data["request_message"]
         user = request.user
-        ticket = Ticket(request_message=request_message, status=TicketStatus.PENDING, user=user,)
+        ticket = Ticket(
+            request_message=request_message,
+            status=TicketStatus.PENDING,
+            user=user,
+        )
 
-        send_ticket_mail(ticket)
+        # send_ticket_mail(ticket)
         ticket.save()
         return Response({"message": "Ticket generated"}, status=status.HTTP_201_CREATED)
 
@@ -321,16 +357,23 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.response_message = data["response_message"]
             ticket.save()
 
-            send_update_status_mail(ticket)
-            return Response({"message": "Response sent"}, status=status.HTTP_202_ACCEPTED)
+            # send_update_status_mail(ticket)
+            return Response(
+                {"message": "Response sent"}, status=status.HTTP_202_ACCEPTED
+            )
 
         if data.get("request_message") and user.has_role(Roles.USER):
             ticket.request_message = data["request_message"]
             ticket.save()
 
-            return Response({"message": "Ticket message updated"}, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {"message": "Ticket message updated"}, status=status.HTTP_202_ACCEPTED
+            )
 
-        return Response({"message": "You are not authorized to update that field"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"message": "You are not authorized to update that field"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class BookRequestViewSet(viewsets.ModelViewSet):
@@ -358,7 +401,7 @@ class BookRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [RequestPermission]
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.action in ["create", "update", "partial_update"]:
             return BookRequestCreateSerializer
         return BookRequestViewSerializer
 
@@ -399,17 +442,30 @@ class BookRequestViewSet(viewsets.ModelViewSet):
         book = Book.objects.get(pk=book_id)
 
         user = request.user
-        user_issued_books = BookRequest.objects.filter(Q(user=user) & Q(status=RequestStatus.ISSUED))
+        user_issued_books = BookRequest.objects.filter(
+            Q(user=user) & Q(status=RequestStatus.ISSUED)
+        )
 
         if len(user_issued_books) >= 3:
-            return Response({"message": "You have already requested 3 books"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "You have already requested 3 books"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if book.inventory <= 0:
-            return Response({"message": "The book is not available"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "The book is not available"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        requested_book = BookRequest(book=book, user=user, requested_date=timezone.now(), status=RequestStatus.PENDING)
+        requested_book = BookRequest(
+            book=book,
+            user=user,
+            requested_date=timezone.now(),
+            status=RequestStatus.PENDING,
+        )
 
-        send_request_book_mail(book, user)
+        # send_request_book_mail(book, user)
         requested_book.save()
 
         return Response({"message": "Book requested"}, status=status.HTTP_201_CREATED)
@@ -436,26 +492,37 @@ class BookRequestViewSet(viewsets.ModelViewSet):
         status_ = data.get("status")
 
         if status_ == RequestStatus.ISSUED:
-            BookRequest.objects.filter(pk=request_id).update(returned_date=timezone.now(),
-                                                             status=RequestStatus.ISSUED)
+            BookRequest.objects.filter(pk=request_id).update(
+                returned_date=timezone.now(), status=RequestStatus.ISSUED
+            )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(inventory=F('inventory') - 1)
+            Book.objects.filter(id=book.id).update(inventory=F("inventory") - 1)
 
             return Response({"message": "Book issued"}, status=status.HTTP_202_ACCEPTED)
 
         if status_ == RequestStatus.REJECTED:
-            BookRequest.objects.filter(pk=request_id).update(status=RequestStatus.REJECTED)
+            BookRequest.objects.filter(pk=request_id).update(
+                status=RequestStatus.REJECTED
+            )
 
-            return Response({"message": "Request book rejected"}, status=status.HTTP_202_ACCEPTED,)
+            return Response(
+                {"message": "Request book rejected"},
+                status=status.HTTP_202_ACCEPTED,
+            )
 
         if status_ == RequestStatus.RETURNED:
-            BookRequest.objects.filter(pk=request_id).update(returned_date=timezone.now(),
-                                                             status=RequestStatus.RETURNED)
+            BookRequest.objects.filter(pk=request_id).update(
+                returned_date=timezone.now(), status=RequestStatus.RETURNED
+            )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(inventory=F('inventory') + 1)
+            Book.objects.filter(id=book.id).update(inventory=F("inventory") + 1)
 
-            return Response({"message": "Request returned"}, status=status.HTTP_202_ACCEPTED)
+            return Response(
+                {"message": "Request returned"}, status=status.HTTP_202_ACCEPTED
+            )
 
-        return Response({"message": "Request status is not valid"}, status=status.HTTP_403_FORBIDDEN)
+        return Response(
+            {"message": "Request status is not valid"}, status=status.HTTP_403_FORBIDDEN
+        )

@@ -69,6 +69,7 @@ class TicketStatus(models.TextChoices):
     REJECTED = "rejected"
     ACCEPTED = "accepted"
 
+
 class Role(models.Model):
     """
     This class represents roles of user in the system
@@ -78,6 +79,7 @@ class Role(models.Model):
     """
 
     role = models.CharField(choices=Roles.choices)
+
 
 class User(AbstractUser):
     """
@@ -92,6 +94,7 @@ class User(AbstractUser):
     def has_role(self, id):
         return self.role.filter(pk=id).exists()
 
+
 class Author(models.Model):
     """
     Model representing an author.
@@ -103,7 +106,9 @@ class Author(models.Model):
     """
 
     name = models.CharField(max_length=30, null=False)
-    gender = models.CharField(max_length=1, choices=GenderType.choices, default=GenderType.MALE)
+    gender = models.CharField(
+        max_length=1, choices=GenderType.choices, default=GenderType.MALE
+    )
     email = models.EmailField(max_length=50, unique=True)
 
     def __str__(self):
@@ -147,15 +152,16 @@ class BookRequest(models.Model):
     """
 
     status = models.CharField(choices=RequestStatus.choices)
-    requested_date = models.DateTimeField(default=timezone.now)
-    issued_date = models.DateTimeField(null=True)
-    returned_date = models.DateTimeField(null=True)
+    requested_date = models.DateField(default=timezone.now)
+    issued_date = models.DateField(null=True)
+    returned_date = models.DateField(null=True)
 
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.book.name + " issued by " + self.user.email
+
 
 class Ticket(models.Model):
     """
