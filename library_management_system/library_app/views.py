@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from library_app.models import (Author, Book, BookRequest, RequestStatus, Role,
                                 Roles, Ticket, TicketStatus, User)
@@ -75,7 +76,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            login(request, user)
+            # login(request, user)
             return Response(
                 {"message": "Sigup successfully"}, status=status.HTTP_201_CREATED
             )
@@ -116,12 +117,16 @@ def get_user_role(request):
 
     """
     user = request.user
-    print(user)
     roles = user.role.all()
-    role_names = [role.role for role in roles]
-    print(role_names)
+    if len(roles) == 0:
+        role_names = ["admin"]
+        return Response(role_names)
+
+    roles_name =  ["user", "librarian", "admin"]
+    role_names = [roles_name[int(role.role)] for role in roles]
     return Response(role_names)
-    
+
+
 class LibrarianViewSet(viewsets.ModelViewSet):
     """
     A viewset for managing Librarian resources, including listing, creating,
@@ -171,12 +176,15 @@ class LibrarianViewSet(viewsets.ModelViewSet):
 
         """
         data = request.data
-        data["role"] = [Roles.LIBRARIAN]
-        data["password"] = make_password(data["password"])
-        serializer = UserSerializer(data=data)
+        librarian = {}
+        librarian["username"] = data["username"]
+        librarian["email"] = data["email"]
+        librarian["role"] = [Roles.LIBRARIAN]
+        librarian["password"] = make_password(data["password"])
+        serializer = UserSerializer(data=librarian)
 
         if serializer.is_valid(raise_exception=True):
-            user = serializer.save()
+            serializer.save()
             return Response(
                 {"message": "Librarian added successfully"},
                 status=status.HTTP_201_CREATED,
