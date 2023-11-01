@@ -121,12 +121,13 @@ def get_user_role(request):
     """
     user = request.user
     roles = user.role.all()
+    print("roles: ", roles)
     if len(roles) == 0:
         role_names = ["admin"]
         return Response(role_names)
 
     roles_name = ["user", "librarian", "admin"]
-    role_names = [roles_name[int(role.role)] for role in roles]
+    role_names = [roles_name[int(role.role)-1] for role in roles]
     return Response(role_names)
 
 
