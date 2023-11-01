@@ -70,13 +70,15 @@ class UserViewSet(viewsets.ModelViewSet):
         """
 
         data = request.data
-        data["role"] = [Roles.USER]
-        data["password"] = make_password(data["password"])
-        serializer = UserSerializer(data=data)
+        user = {}
+        user["username"] = data["username"]
+        user["email"] = data["email"]
+        user["role"] = [Roles.USER]
+        user["password"] = make_password(data["password"])
+        serializer = UserSerializer(data=user)
 
         if serializer.is_valid(raise_exception=True):
             user = serializer.save()
-            # login(request, user)
             return Response(
                 {"message": "Sigup successfully"}, status=status.HTTP_201_CREATED
             )
@@ -104,6 +106,7 @@ def update_password(request):
     User.objects.filter(username=data["username"]).update(password=password)
     return Response({"message": "Updated successfully"}, status=status.HTTP_201_CREATED)
 
+
 @api_view(["GET"])
 def get_user_role(request):
     """
@@ -122,7 +125,7 @@ def get_user_role(request):
         role_names = ["admin"]
         return Response(role_names)
 
-    roles_name =  ["user", "librarian", "admin"]
+    roles_name = ["user", "librarian", "admin"]
     role_names = [roles_name[int(role.role)] for role in roles]
     return Response(role_names)
 
@@ -478,7 +481,7 @@ class BookRequestViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Book requested"}, status=status.HTTP_201_CREATED)
 
-    def update(self, request, *args, **kwargs):
+    def partial(self, request, *args, **kwargs):
         """
         Handle PATCH requests to update the status of book requests by
         librarians and users.
@@ -505,7 +508,8 @@ class BookRequestViewSet(viewsets.ModelViewSet):
             )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(inventory=F("inventory") - 1)
+            Book.objects.filter(id=book.id).update(
+                inventory=F("inventory") - 1)
 
             return Response({"message": "Book issued"}, status=status.HTTP_202_ACCEPTED)
 
@@ -525,7 +529,8 @@ class BookRequestViewSet(viewsets.ModelViewSet):
             )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(inventory=F("inventory") + 1)
+            Book.objects.filter(id=book.id).update(
+                inventory=F("inventory") + 1)
 
             return Response(
                 {"message": "Request returned"}, status=status.HTTP_202_ACCEPTED
