@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
 from django.conf import settings
-from django.contrib.auth import login
 from django.contrib.auth.hashers import make_password
 from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from library_app.models import (Author, Book, BookRequest, RequestStatus, Role,
                                 Roles, Ticket, TicketStatus, User)
@@ -103,8 +102,16 @@ def update_password(request):
     """
     data = request.data
     password = make_password(data["password"])
-    User.objects.filter(username=data["username"]).update(password=password)
-    return Response({"message": "Updated successfully"}, status=status.HTTP_201_CREATED)
+    user = User.objects.filter(username=data["username"])
+    if user:
+        user.update(password=password)
+        return Response(
+            {"message": "Updated successfully"}, status=status.HTTP_201_CREATED
+        )
+    return Response(
+        {"error": "User not found"},
+        status=status.HTTP_203_NON_AUTHORITATIVE_INFORMATION,
+    )
 
 
 @api_view(["GET"])
@@ -120,16 +127,17 @@ def get_user_role(request):
 
     """
     user = request.user
-    roles = user.role.all()
-    print("roles: ", roles)
-    if len(roles) == 0:
-        role_names = ["admin"]
+    if user:
+        roles = user.role.all()
+        if len(roles) == 0:
+            role_names = ["admin"]
+            return Response(role_names)
+
+        roles_name = ["user", "librarian", "admin"]
+        role_names = [roles_name[int(role.role) - 1] for role in roles]
         return Response(role_names)
-
-    roles_name = ["user", "librarian", "admin"]
-    role_names = [roles_name[int(role.role)-1] for role in roles]
-    return Response(role_names)
-
+    
+    return Response([])
 
 class LibrarianViewSet(viewsets.ModelViewSet):
     """
@@ -259,7 +267,7 @@ class BooksViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.SearchFilter,)
     queryset = Book.objects.all()
     permission_classes = [BookPermission]
-
+    parser_classes = (MultiPartParser, FormParser)
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return BookCreateSerializer
@@ -473,16 +481,19 @@ class BookRequestViewSet(viewsets.ModelViewSet):
         requested_book = BookRequest(
             book=book,
             user=user,
-            requested_date=timezone.now(),
+            requested_date=datetime.now().date(),
             status=RequestStatus.PENDING,
         )
 
         # send_request_book_mail(book, user)
         requested_book.save()
 
-        return Response({"message": "Book requested"}, status=status.HTTP_201_CREATED)
+        return Response(
+            BookRequestViewSerializer(requested_book).data,
+            status=status.HTTP_201_CREATED,
+        )
 
-    def partial(self, request, *args, **kwargs):
+    def partial_update(self, request, *args, **kwargs):
         """
         Handle PATCH requests to update the status of book requests by
         librarians and users.
@@ -505,12 +516,11 @@ class BookRequestViewSet(viewsets.ModelViewSet):
 
         if status_ == RequestStatus.ISSUED:
             BookRequest.objects.filter(pk=request_id).update(
-                returned_date=timezone.now(), status=RequestStatus.ISSUED
+                issued_date=datetime.now(), status=RequestStatus.ISSUED
             )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(
-                inventory=F("inventory") - 1)
+            Book.objects.filter(id=book.id).update(inventory=F("inventory") - 1)
 
             return Response({"message": "Book issued"}, status=status.HTTP_202_ACCEPTED)
 
@@ -526,12 +536,11 @@ class BookRequestViewSet(viewsets.ModelViewSet):
 
         if status_ == RequestStatus.RETURNED:
             BookRequest.objects.filter(pk=request_id).update(
-                returned_date=timezone.now(), status=RequestStatus.RETURNED
+                returned_date=datetime.now(), status=RequestStatus.RETURNED
             )
 
             book = BookRequest.objects.get(pk=request_id).book
-            Book.objects.filter(id=book.id).update(
-                inventory=F("inventory") + 1)
+            Book.objects.filter(id=book.id).update(inventory=F("inventory") + 1)
 
             return Response(
                 {"message": "Request returned"}, status=status.HTTP_202_ACCEPTED

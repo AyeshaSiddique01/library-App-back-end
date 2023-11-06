@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from library_app.views import (AuthorViewSet, BookRequestViewSet, BooksViewSet,
                                LibrarianViewSet, RoleViewSet, TicketViewSet,
-                               UserViewSet, update_password, get_user_role)
+                               UserViewSet, get_user_role, update_password)
 
 router = DefaultRouter()
 router.register(r"role", RoleViewSet, basename="role")

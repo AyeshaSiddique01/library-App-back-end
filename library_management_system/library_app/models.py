@@ -115,6 +115,10 @@ class Author(models.Model):
         return self.name
 
 
+def upload_to(instance, filename):
+    return f'images/{filename}'
+
+
 class Book(models.Model):
     """
     This class represents a book in the system.
@@ -128,7 +132,8 @@ class Book(models.Model):
     """
 
     name = models.CharField(max_length=50)
-    image = models.ImageField(upload_to="books/", default="upload/default.png")
+    image = models.ImageField(
+        upload_to=upload_to, default="images/default.png")
     publisher = models.CharField(max_length=50)
     inventory = models.IntegerField(default=0)
 
