@@ -18,10 +18,9 @@ from library_app.serializer import (AuthorSerializer, BookCreateSerializer,
                                     BookRequestViewSerializer,
                                     BookViewSerializer, RoleSerializer,
                                     TicketSerializer, UserSerializer)
-
-# from library_app.tasks.send_book_request import send_request_book_mail
-# from library_app.tasks.send_ticket import send_ticket_mail
-# from library_app.tasks.update_status import send_update_status_mail
+from library_app.tasks.send_book_request import send_request_book_mail
+from library_app.tasks.send_ticket import send_ticket_mail
+from library_app.tasks.update_status import send_update_status_mail
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -127,7 +126,7 @@ def get_user_role(request):
 
     """
     user = request.user
-    if user:
+    if user.is_authenticated:
         roles = user.role.all()
         if len(roles) == 0:
             role_names = ["admin"]
@@ -354,7 +353,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             user=user,
         )
 
-        # send_ticket_mail(ticket)
+        send_ticket_mail(ticket)
         ticket.save()
         return Response({"message": "Ticket generated"}, status=status.HTTP_201_CREATED)
 
@@ -385,7 +384,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.response_message = data["response_message"]
             ticket.save()
 
-            # send_update_status_mail(ticket)
+            send_update_status_mail(ticket)
             return Response(
                 {"message": "Response sent"}, status=status.HTTP_202_ACCEPTED
             )
@@ -499,7 +498,7 @@ class BookRequestViewSet(viewsets.ModelViewSet):
             status=RequestStatus.PENDING,
         )
 
-        # send_request_book_mail(book, user)
+        send_request_book_mail(book, user)
         requested_book.save()
 
         return Response(

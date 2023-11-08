@@ -63,6 +63,4 @@ class UserHandlePermission(permissions.BasePermission):
         """Checks if the user has permission to create user or not."""
         user = request.user
 
-        if view.action == "create":
-            return not user.is_authenticated
-        return True
+        return (view.action == "create" and not user.is_authenticated) or True
