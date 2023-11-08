@@ -6,8 +6,8 @@ from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import api_view
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
 
 from library_app.models import (Author, Book, BookRequest, RequestStatus, Role,
                                 Roles, Ticket, TicketStatus, User)
@@ -136,8 +136,9 @@ def get_user_role(request):
         roles_name = ["user", "librarian", "admin"]
         role_names = [roles_name[int(role.role) - 1] for role in roles]
         return Response(role_names)
-    
+
     return Response([])
+
 
 class LibrarianViewSet(viewsets.ModelViewSet):
     """
@@ -266,12 +267,19 @@ class BooksViewSet(viewsets.ModelViewSet):
     search_fields = ["name"]
     filter_backends = (filters.SearchFilter,)
     queryset = Book.objects.all()
+    serializer_class = BookViewSerializer
     permission_classes = [BookPermission]
     parser_classes = (MultiPartParser, FormParser)
+
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return BookCreateSerializer
-        return BookViewSerializer
+        return self.serializer_class
+
+    def list(self, request, *args, **kwargs):
+        queryset = BookViewSerializer.setup_eager_loading(self.queryset)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -419,11 +427,12 @@ class BookRequestViewSet(viewsets.ModelViewSet):
     """
 
     permission_classes = [RequestPermission]
+    serializer_class = BookRequestViewSerializer
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return BookRequestCreateSerializer
-        return BookRequestViewSerializer
+        return self.serializer_class
 
     def get_queryset(self):
         """
@@ -440,6 +449,11 @@ class BookRequestViewSet(viewsets.ModelViewSet):
         if user.has_role(Roles.USER):
             return BookRequest.objects.filter(user=user)
         return BookRequest.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        queryset = BookRequestViewSerializer.setup_eager_loading(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         """

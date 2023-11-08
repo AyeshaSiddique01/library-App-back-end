@@ -48,6 +48,10 @@ class BookViewSerializer(serializers.ModelSerializer):
 
     author = AuthorSerializer(many=True)
 
+    @classmethod
+    def setup_eager_loading(cls, queryset):
+        return queryset.prefetch_related("author")
+
     class Meta:
         """Configuration class defining the model and fields to include"""
 
@@ -58,7 +62,12 @@ class BookViewSerializer(serializers.ModelSerializer):
 class BookRequestViewSerializer(serializers.ModelSerializer):
     """Serializer for the BookRequest model"""
 
-    book = BookViewSerializer(many=False)
+    book = BookViewSerializer()
+    CLASS = ["book", "user"]
+
+    @classmethod
+    def setup_eager_loading(cls, queryset):
+        return queryset.select_related(*cls.CLASS)
 
     class Meta:
         """Configuration class defining the model and fields to include"""

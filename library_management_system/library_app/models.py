@@ -116,7 +116,7 @@ class Author(models.Model):
 
 
 def upload_to(instance, filename):
-    return f'images/{filename}'
+    return f"images/{filename}"
 
 
 class Book(models.Model):
@@ -132,8 +132,7 @@ class Book(models.Model):
     """
 
     name = models.CharField(max_length=50)
-    image = models.ImageField(
-        upload_to=upload_to, default="images/default.png")
+    image = models.ImageField(upload_to=upload_to, default="images/default.png")
     publisher = models.CharField(max_length=50)
     inventory = models.IntegerField(default=0)
 
