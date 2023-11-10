@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 
-from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.db.models import F, Q
 from django.utils import timezone
@@ -9,6 +8,7 @@ from rest_framework.decorators import api_view
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from library_app.decorators import setup_eager_loading
 from library_app.models import (Author, Book, BookRequest, RequestStatus, Role,
                                 Roles, Ticket, TicketStatus, User)
 from library_app.permissions import (BookPermission, IsAdmin, IsLibrarian,
@@ -46,6 +46,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [UserHandlePermission]
     serializer_class = UserSerializer
 
+    @setup_eager_loading
     def get_queryset(self):
         user = self.request.user
         return User.objects.filter(username=user.username)
@@ -101,7 +102,7 @@ def update_password(request):
     """
     data = request.data
     password = make_password(data["password"])
-    user = User.objects.filter(username=data["username"])
+    user = User.objects.select_related("role").filter(username=data["username"])
     if user:
         user.update(password=password)
         return Response(
@@ -162,6 +163,7 @@ class LibrarianViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdmin]
     serializer_class = UserSerializer
 
+    @setup_eager_loading
     def get_queryset(self):
         """
         Get a queryset of Librarian instances based on their 'Librarian' role.
@@ -265,20 +267,18 @@ class BooksViewSet(viewsets.ModelViewSet):
 
     search_fields = ["name"]
     filter_backends = (filters.SearchFilter,)
-    queryset = Book.objects.all()
     serializer_class = BookViewSerializer
     permission_classes = [BookPermission]
     parser_classes = (MultiPartParser, FormParser)
+
+    @setup_eager_loading
+    def get_queryset(self):
+        return Book.objects.all()
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return BookCreateSerializer
         return self.serializer_class
-
-    def list(self, request, *args, **kwargs):
-        queryset = BookViewSerializer.setup_eager_loading(self.queryset)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -307,6 +307,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     permission_classes = [RequestPermission]
     serializer_class = TicketSerializer
 
+    @setup_eager_loading
     def get_queryset(self):
         """
         Get a queryset of Ticket instances based on the user's role.
@@ -353,7 +354,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             user=user,
         )
 
-        send_ticket_mail(ticket)
+        send_ticket_mail(ticket, user)
         ticket.save()
         return Response({"message": "Ticket generated"}, status=status.HTTP_201_CREATED)
 
@@ -433,6 +434,7 @@ class BookRequestViewSet(viewsets.ModelViewSet):
             return BookRequestCreateSerializer
         return self.serializer_class
 
+    @setup_eager_loading
     def get_queryset(self):
         """
         Get a queryset of Book Request instances based on the user's role.
@@ -444,15 +446,9 @@ class BookRequestViewSet(viewsets.ModelViewSet):
             QuerySet: A filtered queryset containing Book Request objects.
         """
         user = self.request.user
-
         if user.has_role(Roles.USER):
             return BookRequest.objects.filter(user=user)
         return BookRequest.objects.all()
-
-    def list(self, request, *args, **kwargs):
-        queryset = BookRequestViewSerializer.setup_eager_loading(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         """

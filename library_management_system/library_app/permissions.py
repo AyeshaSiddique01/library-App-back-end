@@ -61,6 +61,5 @@ class UserHandlePermission(permissions.BasePermission):
 
     def has_permission(self, request, view):
         """Checks if the user has permission to create user or not."""
-        user = request.user
 
-        return (view.action == "create" and not user.is_authenticated) or True
+        return (view.action == "create" and not request.user.is_authenticated) or True

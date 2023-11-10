@@ -70,6 +70,10 @@ class TicketStatus(models.TextChoices):
     ACCEPTED = "accepted"
 
 
+def upload_to(instance, filename):
+    return f"images/{filename}"
+
+
 class Role(models.Model):
     """
     This class represents roles of user in the system
@@ -113,10 +117,6 @@ class Author(models.Model):
 
     def __str__(self):
         return self.name
-
-
-def upload_to(instance, filename):
-    return f"images/{filename}"
 
 
 class Book(models.Model):
