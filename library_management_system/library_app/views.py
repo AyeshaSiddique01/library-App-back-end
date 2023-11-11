@@ -1,3 +1,4 @@
+import random
 from datetime import datetime, timedelta, timezone
 
 from django.contrib.auth.hashers import make_password
@@ -19,8 +20,12 @@ from library_app.serializer import (AuthorSerializer, BookCreateSerializer,
                                     BookViewSerializer, RoleSerializer,
                                     TicketSerializer, UserSerializer)
 from library_app.tasks.send_book_request import send_request_book_mail
+from library_app.tasks.send_otp import send_otp
 from library_app.tasks.send_ticket import send_ticket_mail
 from library_app.tasks.update_status import send_update_status_mail
+
+recovery_code = 0
+username = ""
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -86,6 +91,22 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 @api_view(["POST"])
+def generate_email(request):
+    data = request.data
+    email = data["email"]
+    users = User.objects.filter(email=email)
+    if len(users) != 0:
+        global recovery_code, username
+        username = users[0].username
+        recovery_code = random.randint(10000, 99999)
+        print(recovery_code, username)
+        # send_otp(email, recovery_code)
+        return Response("Emial sent")
+
+    return Response(status=status.HTTP_403_FORBIDDEN)
+
+
+@api_view(["POST"])
 def update_password(request):
     """
     Handle POST requests to partial_update a user of any role and perform necessary
@@ -102,16 +123,17 @@ def update_password(request):
     """
     data = request.data
     password = make_password(data["password"])
-    user = User.objects.select_related("role").filter(username=data["username"])
-    if user:
-        user.update(password=password)
-        return Response(
-            {"message": "Updated successfully"}, status=status.HTTP_201_CREATED
-        )
-    return Response(
-        {"error": "User not found"},
-        status=status.HTTP_203_NON_AUTHORITATIVE_INFORMATION,
-    )
+    global recovery_code, username
+    print(username)
+    if username != data["username"]:
+        return Response({"error": "Invalid Username"}, status=status.HTTP_201_CREATED)
+
+    if recovery_code != int(data["otp"]):
+        return Response({"error": "Invalid OTP"}, status=status.HTTP_201_CREATED)
+
+    user = User.objects.filter(username=data["username"])
+    user.update(password=password)
+    return Response({"message": "Updated successfully"}, status=status.HTTP_201_CREATED)
 
 
 @api_view(["GET"])

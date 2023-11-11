@@ -16,8 +16,6 @@ class RoleSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for the User model"""
 
-    # role = RoleSerializer(read_only=True, many=True)
-
     @staticmethod
     def setup_eager_loading(queryset):
         queryset = queryset.prefetch_related("role")
