@@ -20,12 +20,9 @@ from library_app.serializer import (AuthorSerializer, BookCreateSerializer,
                                     BookViewSerializer, RoleSerializer,
                                     TicketSerializer, UserSerializer)
 from library_app.tasks.send_book_request import send_request_book_mail
-from library_app.tasks.send_otp import send_otp
+from library_app.tasks.send_new_password import send_new_password
 from library_app.tasks.send_ticket import send_ticket_mail
 from library_app.tasks.update_status import send_update_status_mail
-
-recovery_code = 0
-username = ""
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -92,15 +89,30 @@ class UserViewSet(viewsets.ModelViewSet):
 
 @api_view(["POST"])
 def generate_email(request):
+    """
+    Handle POST requests to generate a new password for a user with a specified email,
+    update the user's password, and send the new password via email.
+
+    Args:
+        request (HttpRequest): The HTTP request object with user data.
+
+    Returns:
+        Response: A response object with a success message ("Email sent") and a status code
+        of 200 (OK) upon successful password generation, update, and email sending. If the
+        email address is not associated with any user, it returns a 403 (Forbidden) response.
+
+    Raises:
+        KeyError: If the required 'email' key is missing from the request data.
+    """
     data = request.data
     email = data["email"]
     users = User.objects.filter(email=email)
     if len(users) != 0:
-        global recovery_code, username
-        username = users[0].username
-        recovery_code = random.randint(10000, 99999)
-        print(recovery_code, username)
-        # send_otp(email, recovery_code)
+        new_password = User.objects.make_random_password()
+        user = users[0]
+        user.password = make_password(new_password)
+        user.save()
+        send_new_password(user)
         return Response("Emial sent")
 
     return Response(status=status.HTTP_403_FORBIDDEN)
@@ -109,30 +121,34 @@ def generate_email(request):
 @api_view(["POST"])
 def update_password(request):
     """
-    Handle POST requests to partial_update a user of any role and perform necessary
-    operations such as password hashing.
+    Handle POST requests to update a user's password, ensuring proper authentication
+    and password hashing.
 
     Args:
-        request (HttpRequest): The HTTP request object containing user
-            data in the request body.
+        request (HttpRequest): The HTTP request object with user data.
 
     Returns:
-        Response: A response object with a success message and a status
-        code of 201 (Created) upon successful update.
+        Response: A response object with a success message and a status code of 201 (Created)
+        upon successful password update. If the request is not authenticated, it returns a
+        403 (Forbidden) response. If the old password provided in the request does not match
+        the user's current password, it returns a 201 (Created) response with an error message.
 
+    Raises:
+        KeyError: If the required 'old_password' or 'new_password' keys are missing from the
+        request data.
     """
+
+    user = request.user
+    if not user.is_authenticated:
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
     data = request.data
-    password = make_password(data["password"])
-    global recovery_code, username
-    print(username)
-    if username != data["username"]:
-        return Response({"error": "Invalid Username"}, status=status.HTTP_201_CREATED)
+    old_password = data["old_password"]
+    if not user.check_password(old_password):
+        return Response({"error": "Invalid password"}, status=status.HTTP_201_CREATED)
 
-    if recovery_code != int(data["otp"]):
-        return Response({"error": "Invalid OTP"}, status=status.HTTP_201_CREATED)
-
-    user = User.objects.filter(username=data["username"])
-    user.update(password=password)
+    user.password = make_password(data["new_password"])
+    user.save()
     return Response({"message": "Updated successfully"}, status=status.HTTP_201_CREATED)
 
 

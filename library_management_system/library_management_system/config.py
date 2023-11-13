@@ -1,0 +1,8 @@
+ENGINE = "django.db.backends.postgresql"
+NAME = "Library_management_system"
+USER = "postgres"
+PASSWORD = "12345"
+HOST = "localhost"
+PORT = "5432"
+EMAIL_HOST_USER = "elite.express243@gmail.com"
+EMAIL_HOST_PASSWORD = ""
