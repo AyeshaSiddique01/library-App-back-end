@@ -112,7 +112,7 @@ def generate_email(request):
         user = users[0]
         user.password = make_password(new_password)
         user.save()
-        send_new_password(user)
+        send_new_password(user, new_password)
         return Response("Emial sent")
 
     return Response(status=status.HTTP_403_FORBIDDEN)
